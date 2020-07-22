@@ -1,0 +1,31 @@
+---
+- name: Setup nats
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install requirements
+      dnf: name=unzip state=latest
+    - name: Add nats group
+      group: name=nats state=present
+    - name: Add nats user
+      user: name=nats group=nats system=yes
+    - name: Create nats tmp directory
+      file: path=/tmp/nats state=directory
+    - name: Download nats
+      unarchive: src="https://github.com/nats-io/nats-server/releases/download/v2.1.7/nats-server-v2.1.7-linux-amd64.zip" dest="/tmp/nats" creates="/tmp/nats/nats-server-v2.1.7-linux-amd64" remote_src=yes
+    - name: Move nats server
+      command: mv /tmp/nats/nats-server-v2.1.7-linux-amd64/nats-server /usr/local/bin/
+    - name: Download nats streaming server
+      unarchive: src="https://github.com/nats-io/nats-streaming-server/releases/download/v0.17.0/nats-streaming-server-v0.17.0-linux-amd64.zip" dest="/tmp/nats" remote_src=yes creates=/tmp/nats/nats-streaming-server-v0.17.0-linux-amd64
+    - name: Move nats streaming server
+      command: mv /tmp/nats/nats-streaming-server-v0.17.0-linux-amd64/nats-streaming-server /usr/local/bin/
+    - name: Cleanup /tmp/nats
+      file: path=/tmp/nats state=absent
+    - name: Add nats streaming server data directory
+      file: path=/srv/nats/data owner=nats group=nats state=directory
+    - name: Copy nats server config to systemd
+      template: src=nats.service.tpl dest=/etc/systemd/system/nats.service owner=root
+    - name: Copy nats streaming server config to systemd
+      template: src=nats-streaming-server.service.tpl dest=/etc/systemd/system/nats-streaming-server.service owner=root
+    - name: Force systemd to reread configs
+      systemd: daemon_reload=yes
